@@ -1,0 +1,30 @@
+[package]
+name = "io-fs"
+description = "Set of I/O-free coroutines and runtimes to manage filesystems"
+version = "1.0.0"
+authors = ["soywod <clement.douin@posteo.net>"]
+edition = "2021"
+license = "MIT"
+categories = ["api-bindings", "filesystem"]
+keywords = ["io-free", "coroutine", "runtime", "file", "directory"]
+homepage = "https://pimalaya.org"
+documentation = "https://docs.rs/io-fs/latest/io_fs"
+repository = "https://github.com/pimalaya/io-fs"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[features]
+default = []
+std = []
+tokio = ["dep:tokio"]
+
+[dev-dependencies]
+env_logger = "0.11"
+tempdir = "0.3"
+tokio = { version = "1", features = ["full"] }
+
+[dependencies]
+log = "0.4"
+tokio = { version = "1", default-features = false, features = ["fs"], optional = true }
