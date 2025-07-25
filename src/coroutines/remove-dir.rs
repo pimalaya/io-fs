@@ -2,41 +2,60 @@
 
 use std::path::PathBuf;
 
-use log::debug;
+use log::{debug, trace};
+use thiserror::Error;
 
-use crate::Io;
+use crate::io::FsIo;
 
-/// I/O-free coroutine for removing a directory.
+#[derive(Clone, Debug, Error)]
+pub enum RemoveDirError {
+    #[error("Missing input: path missing or already consumed")]
+    MissingInput,
+    #[error("Invalid argument: expected {0}, got {1:?}")]
+    InvalidArgument(&'static str, FsIo),
+}
+
+#[derive(Clone, Debug)]
+pub enum RemoveDirResult {
+    Ok,
+    Err(RemoveDirError),
+    Io(FsIo),
+}
+
+/// I/O-free coroutine for creating a directory.
 #[derive(Debug)]
 pub struct RemoveDir {
-    input: Option<PathBuf>,
+    path: Option<PathBuf>,
 }
 
 impl RemoveDir {
-    /// Creates a new coroutine from the given directory path.
+    /// Removes a new coroutine from the given directory path.
     pub fn new(path: impl Into<PathBuf>) -> Self {
-        let input = Some(path.into());
-        Self { input }
+        let path = Some(path.into());
+        Self { path }
     }
 
-    /// Makes the coroutine progress.
-    pub fn resume(&mut self, arg: Option<Io>) -> Result<(), Io> {
+    /// Makes remove dir progress.
+    pub fn resume(&mut self, arg: Option<FsIo>) -> RemoveDirResult {
         let Some(arg) = arg else {
-            let Some(input) = self.input.take() else {
-                return Err(Io::error("remove dir input already consumed"));
+            let Some(path) = self.path.take() else {
+                return RemoveDirResult::Err(RemoveDirError::MissingInput);
             };
 
-            debug!("break: need I/O to remove directory");
-            return Err(Io::RemoveDir(Err(input)));
+            trace!("wants I/O to remove directory at {}", path.display());
+            return RemoveDirResult::Io(FsIo::RemoveDir(Err(path)));
         };
 
-        debug!("resume after removing dir");
+        debug!("resume after creating directory");
 
-        let Io::RemoveDir(Ok(())) = arg else {
-            let msg = format!("expected remove dir output, got {arg:?}");
-            return Err(Io::error(msg));
+        let FsIo::RemoveDir(io) = arg else {
+            let err = RemoveDirError::InvalidArgument("remove dir output", arg);
+            return RemoveDirResult::Err(err);
         };
 
-        Ok(())
+        match io {
+            Ok(()) => RemoveDirResult::Ok,
+            Err(path) => RemoveDirResult::Io(FsIo::RemoveDir(Err(path))),
+        }
     }
 }

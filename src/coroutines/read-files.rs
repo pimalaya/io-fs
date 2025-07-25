@@ -5,41 +5,54 @@ use std::{
     path::PathBuf,
 };
 
-use log::debug;
+use log::{debug, trace};
+use thiserror::Error;
 
-use crate::Io;
+use crate::io::FsIo;
+
+#[derive(Clone, Debug, Error)]
+pub enum ReadFilesError {
+    #[error("Missing input: path missing or already consumed")]
+    MissingInput,
+    #[error("Invalid argument: expected {0}, got {1:?}")]
+    InvalidArgument(&'static str, FsIo),
+}
+
+#[derive(Clone, Debug)]
+pub enum ReadFilesResult {
+    Ok(HashMap<PathBuf, Vec<u8>>),
+    Err(ReadFilesError),
+    Io(FsIo),
+}
 
 /// I/O-free coroutine for reading files contents.
 #[derive(Debug)]
 pub struct ReadFiles {
-    input: Option<HashSet<PathBuf>>,
+    paths: Option<HashSet<PathBuf>>,
 }
 
 impl ReadFiles {
-    /// Reads a new coroutine from the given files path.
-    pub fn new(paths: impl IntoIterator<Item = impl Into<PathBuf>>) -> Self {
-        let input = Some(paths.into_iter().map(Into::into).collect());
-        Self { input }
-    }
-
     /// Makes the coroutine progress.
-    pub fn resume(&mut self, arg: Option<Io>) -> Result<HashMap<PathBuf, Vec<u8>>, Io> {
+    pub fn resume(&mut self, arg: Option<FsIo>) -> ReadFilesResult {
         let Some(arg) = arg else {
-            let Some(input) = self.input.take() else {
-                return Err(Io::error("read files input already consumed"));
+            let Some(path) = self.paths.take() else {
+                return ReadFilesResult::Err(ReadFilesError::MissingInput);
             };
 
-            debug!("break: need I/O to read files");
-            return Err(Io::ReadFiles(Err(input)));
+            trace!("wants I/O to read files");
+            return ReadFilesResult::Io(FsIo::ReadFiles(Err(path)));
         };
 
         debug!("resume after reading files");
 
-        let Io::ReadFiles(Ok(contents)) = arg else {
-            let msg = format!("expected read files output, got {arg:?}");
-            return Err(Io::error(msg));
+        let FsIo::ReadFiles(io) = arg else {
+            let err = ReadFilesError::InvalidArgument("read files output", arg);
+            return ReadFilesResult::Err(err);
         };
 
-        Ok(contents)
+        match io {
+            Ok(contents) => ReadFilesResult::Ok(contents),
+            Err(path) => ReadFilesResult::Io(FsIo::ReadFiles(Err(path))),
+        }
     }
 }

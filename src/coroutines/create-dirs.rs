@@ -2,41 +2,60 @@
 
 use std::{collections::HashSet, path::PathBuf};
 
-use log::debug;
+use log::{debug, trace};
+use thiserror::Error;
 
-use crate::Io;
+use crate::io::FsIo;
 
-/// I/O-free coroutine for creating directories.
+#[derive(Clone, Debug, Error)]
+pub enum CreateDirsError {
+    #[error("Missing input: paths missing or already consumed")]
+    MissingInput,
+    #[error("Invalid argument: expected {0}, got {1:?}")]
+    InvalidArgument(&'static str, FsIo),
+}
+
+#[derive(Clone, Debug)]
+pub enum CreateDirsResult {
+    Ok,
+    Err(CreateDirsError),
+    Io(FsIo),
+}
+
+/// I/O-free coroutine for creating a dirsectory.
 #[derive(Debug)]
 pub struct CreateDirs {
-    input: Option<HashSet<PathBuf>>,
+    paths: Option<HashSet<PathBuf>>,
 }
 
 impl CreateDirs {
-    /// Creates a new coroutine from the given directory paths.
-    pub fn new(paths: impl IntoIterator<Item = impl Into<PathBuf>>) -> CreateDirs {
-        let input = Some(paths.into_iter().map(Into::into).collect());
-        Self { input }
+    /// Creates a new coroutine from the given dirsectory path.
+    pub fn new(paths: impl IntoIterator<Item = PathBuf>) -> Self {
+        let paths = Some(paths.into_iter().collect());
+        Self { paths }
     }
 
-    /// Makes the coroutine progress.
-    pub fn resume(&mut self, arg: Option<Io>) -> Result<(), Io> {
+    /// Makes create dirs progress.
+    pub fn resume(&mut self, arg: Option<FsIo>) -> CreateDirsResult {
         let Some(arg) = arg else {
-            let Some(input) = self.input.take() else {
-                return Err(Io::error("create dirs input already consumed"));
+            let Some(paths) = self.paths.take() else {
+                return CreateDirsResult::Err(CreateDirsError::MissingInput);
             };
 
-            debug!("break: need I/O to create directories");
-            return Err(Io::CreateDirs(Err(input)));
+            trace!("wants I/O to create directories: {paths:?}");
+            return CreateDirsResult::Io(FsIo::CreateDirs(Err(paths)));
         };
 
         debug!("resume after creating directories");
 
-        let Io::CreateDirs(Ok(())) = arg else {
-            let msg = format!("expected create dirs output, got {arg:?}");
-            return Err(Io::error(msg));
+        let FsIo::CreateDirs(io) = arg else {
+            let err = CreateDirsError::InvalidArgument("create dirs output", arg);
+            return CreateDirsResult::Err(err);
         };
 
-        Ok(())
+        match io {
+            Ok(()) => CreateDirsResult::Ok,
+            Err(path) => CreateDirsResult::Io(FsIo::CreateDirs(Err(path))),
+        }
     }
 }

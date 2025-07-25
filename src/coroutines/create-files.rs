@@ -2,49 +2,65 @@
 
 use std::{collections::HashMap, path::PathBuf};
 
-use log::debug;
+use log::{debug, trace};
+use thiserror::Error;
 
-use crate::Io;
+use crate::io::FsIo;
 
-/// I/O-free coroutine for creating multiple files with their contents.
+#[derive(Clone, Debug, Error)]
+pub enum CreateFilesError {
+    #[error("Missing input: contents missing or already consumed")]
+    MissingInput,
+    #[error("Invalid argument: expected {0}, got {1:?}")]
+    InvalidArgument(&'static str, FsIo),
+}
+
+#[derive(Clone, Debug)]
+pub enum CreateFilesResult {
+    Ok,
+    Err(CreateFilesError),
+    Io(FsIo),
+}
+
+/// I/O-free coroutine for creating a file.
 #[derive(Debug)]
 pub struct CreateFiles {
-    input: Option<HashMap<PathBuf, Vec<u8>>>,
+    contents: Option<HashMap<PathBuf, Vec<u8>>>,
 }
 
 impl CreateFiles {
-    /// Creates a new coroutine from the given contents.
+    /// Creates a new coroutine from the given file path and contents.
     pub fn new(
         contents: impl IntoIterator<Item = (impl Into<PathBuf>, impl IntoIterator<Item = u8>)>,
     ) -> Self {
         let contents = contents
             .into_iter()
-            .map(|(path, contents)| (path.into(), contents.into_iter().collect()))
-            .collect();
-
-        Self {
-            input: Some(contents),
-        }
+            .map(|(path, contents)| (path.into(), contents.into_iter().collect()));
+        let contents = Some(contents.collect());
+        Self { contents }
     }
 
-    /// Makes the coroutine progress.
-    pub fn resume(&mut self, arg: Option<Io>) -> Result<(), Io> {
+    /// Makes create files progress.
+    pub fn resume(&mut self, arg: Option<FsIo>) -> CreateFilesResult {
         let Some(arg) = arg else {
-            let Some(input) = self.input.take() else {
-                return Err(Io::error("create files input already consumed"));
+            let Some(contents) = self.contents.take() else {
+                return CreateFilesResult::Err(CreateFilesError::MissingInput);
             };
 
-            debug!("break: need I/O to create files");
-            return Err(Io::CreateFiles(Err(input)));
+            trace!("wants I/O to create files");
+            return CreateFilesResult::Io(FsIo::CreateFiles(Err(contents)));
         };
 
         debug!("resume after creating files");
 
-        let Io::CreateFiles(Ok(())) = arg else {
-            let msg = format!("expected create files output, got {arg:?}");
-            return Err(Io::error(msg));
+        let FsIo::CreateFiles(io) = arg else {
+            let err = CreateFilesError::InvalidArgument("create files output", arg);
+            return CreateFilesResult::Err(err);
         };
 
-        Ok(())
+        match io {
+            Ok(()) => CreateFilesResult::Ok,
+            Err(path) => CreateFilesResult::Io(FsIo::CreateFiles(Err(path))),
+        }
     }
 }

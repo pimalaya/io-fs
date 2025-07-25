@@ -2,41 +2,61 @@
 
 use std::path::PathBuf;
 
-use log::debug;
+use log::{debug, trace};
+use thiserror::Error;
 
-use crate::Io;
+use crate::io::FsIo;
 
-/// I/O-free coroutine for creating a file with its contents.
+#[derive(Clone, Debug, Error)]
+pub enum CreateFileError {
+    #[error("Missing input: contents missing or already consumed")]
+    MissingInput,
+    #[error("Invalid argument: expected {0}, got {1:?}")]
+    InvalidArgument(&'static str, FsIo),
+}
+
+#[derive(Clone, Debug)]
+pub enum CreateFileResult {
+    Ok,
+    Err(CreateFileError),
+    Io(FsIo),
+}
+
+/// I/O-free coroutine for creating a fileectory.
 #[derive(Debug)]
 pub struct CreateFile {
-    input: Option<(PathBuf, Vec<u8>)>,
+    contents: Option<(PathBuf, Vec<u8>)>,
 }
 
 impl CreateFile {
-    /// Creates a new coroutine from the given path and contents.
+    /// Creates a new coroutine from the given fileectory path.
     pub fn new(path: impl Into<PathBuf>, contents: impl IntoIterator<Item = u8>) -> Self {
-        let input = Some((path.into(), contents.into_iter().collect()));
-        Self { input }
+        let contents = contents.into_iter().collect();
+        let contents = Some((path.into(), contents));
+        Self { contents }
     }
 
-    /// Makes the coroutine progress.
-    pub fn resume(&mut self, arg: Option<Io>) -> Result<(), Io> {
+    /// Makes create file progress.
+    pub fn resume(&mut self, arg: Option<FsIo>) -> CreateFileResult {
         let Some(arg) = arg else {
-            let Some(input) = self.input.take() else {
-                return Err(Io::error("create file input already consumed"));
+            let Some((path, contents)) = self.contents.take() else {
+                return CreateFileResult::Err(CreateFileError::MissingInput);
             };
 
-            debug!("break: need I/O to create file");
-            return Err(Io::CreateFile(Err(input)));
+            trace!("wants I/O to create file at {}", path.display());
+            return CreateFileResult::Io(FsIo::CreateFile(Err((path, contents))));
         };
 
         debug!("resume after creating file");
 
-        let Io::CreateFile(Ok(())) = arg else {
-            let msg = format!("expected create file output, got {arg:?}");
-            return Err(Io::error(msg));
+        let FsIo::CreateFile(io) = arg else {
+            let err = CreateFileError::InvalidArgument("create file output", arg);
+            return CreateFileResult::Err(err);
         };
 
-        Ok(())
+        match io {
+            Ok(()) => CreateFileResult::Ok,
+            Err(path) => CreateFileResult::Io(FsIo::CreateFile(Err(path))),
+        }
     }
 }

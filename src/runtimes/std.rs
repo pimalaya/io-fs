@@ -8,31 +8,30 @@ use std::{
 
 use log::debug;
 
-use crate::Io;
+use crate::io::FsIo;
 
 /// The main runtime I/O handler.
 ///
 /// This handler makes use of standard modules [`std::fs`] and
 /// [`std::io`] to process filesystems [`Io`].
-pub fn handle(input: Io) -> io::Result<Io> {
+pub fn handle(input: FsIo) -> io::Result<FsIo> {
     match input {
-        Io::Error(err) => Err(io::Error::new(io::ErrorKind::Other, err)),
-        Io::CreateDir(input) => create_dir(input),
-        Io::CreateDirs(input) => create_dirs(input),
-        Io::CreateFile(input) => create_file(input),
-        Io::CreateFiles(input) => create_files(input),
-        Io::ReadDir(input) => read_dir(input),
-        Io::ReadFile(input) => read_file(input),
-        Io::ReadFiles(input) => read_files(input),
-        Io::RemoveDir(input) => remove_dir(input),
-        Io::RemoveDirs(input) => remove_dirs(input),
-        Io::RemoveFile(input) => remove_file(input),
-        Io::RemoveFiles(input) => remove_files(input),
-        Io::Rename(input) => rename(input),
+        FsIo::CreateDir(input) => create_dir(input),
+        FsIo::CreateDirs(input) => create_dirs(input),
+        FsIo::CreateFile(input) => create_file(input),
+        FsIo::CreateFiles(input) => create_files(input),
+        FsIo::ReadDir(input) => read_dir(input),
+        FsIo::ReadFile(input) => read_file(input),
+        FsIo::ReadFiles(input) => read_files(input),
+        FsIo::RemoveDir(input) => remove_dir(input),
+        FsIo::RemoveDirs(input) => remove_dirs(input),
+        FsIo::RemoveFile(input) => remove_file(input),
+        FsIo::RemoveFiles(input) => remove_files(input),
+        FsIo::Rename(input) => rename(input),
     }
 }
 
-pub fn create_dir(input: Result<(), PathBuf>) -> io::Result<Io> {
+pub fn create_dir(input: Result<(), PathBuf>) -> io::Result<FsIo> {
     let Err(path) = input else {
         let kind = io::ErrorKind::InvalidInput;
         return Err(io::Error::new(kind, "missing directory path"));
@@ -40,10 +39,10 @@ pub fn create_dir(input: Result<(), PathBuf>) -> io::Result<Io> {
 
     fs::create_dir(path)?;
 
-    Ok(Io::CreateDir(Ok(())))
+    Ok(FsIo::CreateDir(Ok(())))
 }
 
-pub fn create_dirs(input: Result<(), HashSet<PathBuf>>) -> io::Result<Io> {
+pub fn create_dirs(input: Result<(), HashSet<PathBuf>>) -> io::Result<FsIo> {
     let Err(paths) = input else {
         let kind = io::ErrorKind::InvalidInput;
         return Err(io::Error::new(kind, "missing directory paths"));
@@ -53,10 +52,10 @@ pub fn create_dirs(input: Result<(), HashSet<PathBuf>>) -> io::Result<Io> {
         fs::create_dir(path)?;
     }
 
-    Ok(Io::CreateDirs(Ok(())))
+    Ok(FsIo::CreateDirs(Ok(())))
 }
 
-pub fn create_file(input: Result<(), (PathBuf, Vec<u8>)>) -> io::Result<Io> {
+pub fn create_file(input: Result<(), (PathBuf, Vec<u8>)>) -> io::Result<FsIo> {
     let Err((path, contents)) = input else {
         let kind = io::ErrorKind::InvalidInput;
         return Err(io::Error::new(kind, "missing file contents"));
@@ -64,10 +63,10 @@ pub fn create_file(input: Result<(), (PathBuf, Vec<u8>)>) -> io::Result<Io> {
 
     fs::write(path, contents)?;
 
-    Ok(Io::CreateFile(Ok(())))
+    Ok(FsIo::CreateFile(Ok(())))
 }
 
-pub fn create_files(input: Result<(), HashMap<PathBuf, Vec<u8>>>) -> io::Result<Io> {
+pub fn create_files(input: Result<(), HashMap<PathBuf, Vec<u8>>>) -> io::Result<FsIo> {
     let Err(contents) = input else {
         let kind = io::ErrorKind::InvalidInput;
         return Err(io::Error::new(kind, "missing file contents"));
@@ -77,10 +76,10 @@ pub fn create_files(input: Result<(), HashMap<PathBuf, Vec<u8>>>) -> io::Result<
         fs::write(path, contents)?;
     }
 
-    Ok(Io::CreateFiles(Ok(())))
+    Ok(FsIo::CreateFiles(Ok(())))
 }
 
-pub fn read_dir(input: Result<HashSet<PathBuf>, PathBuf>) -> io::Result<Io> {
+pub fn read_dir(input: Result<HashSet<PathBuf>, PathBuf>) -> io::Result<FsIo> {
     let Err(path) = input else {
         let kind = io::ErrorKind::InvalidInput;
         return Err(io::Error::new(kind, "missing directory path"));
@@ -101,10 +100,10 @@ pub fn read_dir(input: Result<HashSet<PathBuf>, PathBuf>) -> io::Result<Io> {
         };
     }
 
-    Ok(Io::ReadDir(Ok(paths)))
+    Ok(FsIo::ReadDir(Ok(paths)))
 }
 
-pub fn read_file(input: Result<Vec<u8>, PathBuf>) -> io::Result<Io> {
+pub fn read_file(input: Result<Vec<u8>, PathBuf>) -> io::Result<FsIo> {
     let Err(path) = input else {
         let kind = io::ErrorKind::InvalidInput;
         return Err(io::Error::new(kind, "missing file path"));
@@ -112,10 +111,10 @@ pub fn read_file(input: Result<Vec<u8>, PathBuf>) -> io::Result<Io> {
 
     let contents = fs::read(path)?;
 
-    Ok(Io::ReadFile(Ok(contents)))
+    Ok(FsIo::ReadFile(Ok(contents)))
 }
 
-pub fn read_files(input: Result<HashMap<PathBuf, Vec<u8>>, HashSet<PathBuf>>) -> io::Result<Io> {
+pub fn read_files(input: Result<HashMap<PathBuf, Vec<u8>>, HashSet<PathBuf>>) -> io::Result<FsIo> {
     let Err(paths) = input else {
         let kind = io::ErrorKind::InvalidInput;
         return Err(io::Error::new(kind, "missing file paths"));
@@ -128,10 +127,10 @@ pub fn read_files(input: Result<HashMap<PathBuf, Vec<u8>>, HashSet<PathBuf>>) ->
         contents.insert(path, content);
     }
 
-    Ok(Io::ReadFiles(Ok(contents)))
+    Ok(FsIo::ReadFiles(Ok(contents)))
 }
 
-pub fn remove_dir(input: Result<(), PathBuf>) -> io::Result<Io> {
+pub fn remove_dir(input: Result<(), PathBuf>) -> io::Result<FsIo> {
     let Err(path) = input else {
         let kind = io::ErrorKind::InvalidInput;
         return Err(io::Error::new(kind, "missing directory path"));
@@ -139,10 +138,10 @@ pub fn remove_dir(input: Result<(), PathBuf>) -> io::Result<Io> {
 
     fs::remove_dir_all(path)?;
 
-    Ok(Io::RemoveDir(Ok(())))
+    Ok(FsIo::RemoveDir(Ok(())))
 }
 
-pub fn remove_dirs(input: Result<(), HashSet<PathBuf>>) -> io::Result<Io> {
+pub fn remove_dirs(input: Result<(), HashSet<PathBuf>>) -> io::Result<FsIo> {
     let Err(paths) = input else {
         let kind = io::ErrorKind::InvalidInput;
         return Err(io::Error::new(kind, "missing directory paths"));
@@ -152,10 +151,10 @@ pub fn remove_dirs(input: Result<(), HashSet<PathBuf>>) -> io::Result<Io> {
         fs::remove_dir_all(path)?;
     }
 
-    Ok(Io::RemoveDirs(Ok(())))
+    Ok(FsIo::RemoveDirs(Ok(())))
 }
 
-pub fn remove_file(input: Result<(), PathBuf>) -> io::Result<Io> {
+pub fn remove_file(input: Result<(), PathBuf>) -> io::Result<FsIo> {
     let Err(path) = input else {
         let kind = io::ErrorKind::InvalidInput;
         return Err(io::Error::new(kind, "missing file path"));
@@ -163,10 +162,10 @@ pub fn remove_file(input: Result<(), PathBuf>) -> io::Result<Io> {
 
     fs::remove_file(path)?;
 
-    Ok(Io::RemoveFile(Ok(())))
+    Ok(FsIo::RemoveFile(Ok(())))
 }
 
-pub fn remove_files(input: Result<(), HashSet<PathBuf>>) -> io::Result<Io> {
+pub fn remove_files(input: Result<(), HashSet<PathBuf>>) -> io::Result<FsIo> {
     let Err(paths) = input else {
         let kind = io::ErrorKind::InvalidInput;
         return Err(io::Error::new(kind, "missing file paths"));
@@ -176,10 +175,10 @@ pub fn remove_files(input: Result<(), HashSet<PathBuf>>) -> io::Result<Io> {
         fs::remove_file(path)?;
     }
 
-    Ok(Io::RemoveFiles(Ok(())))
+    Ok(FsIo::RemoveFiles(Ok(())))
 }
 
-pub fn rename(input: Result<(), Vec<(PathBuf, PathBuf)>>) -> io::Result<Io> {
+pub fn rename(input: Result<(), Vec<(PathBuf, PathBuf)>>) -> io::Result<FsIo> {
     let Err(paths) = input else {
         let kind = io::ErrorKind::InvalidInput;
         return Err(io::Error::new(kind, "missing file paths"));
@@ -189,5 +188,5 @@ pub fn rename(input: Result<(), Vec<(PathBuf, PathBuf)>>) -> io::Result<Io> {
         fs::rename(from, to)?;
     }
 
-    Ok(Io::Rename(Ok(())))
+    Ok(FsIo::Rename(Ok(())))
 }

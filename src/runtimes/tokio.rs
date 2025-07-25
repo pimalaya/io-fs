@@ -8,31 +8,30 @@ use std::{
 
 use tokio::fs;
 
-use crate::Io;
+use crate::io::FsIo;
 
 /// The Tokio-based, async I/O handler.
 ///
 /// This handler makes use of standard module [`std::io`] and Tokio
-/// module [`tokio::io`] to process [`Io`] filesystems.
-pub async fn handle(input: Io) -> io::Result<Io> {
+/// module [`tokio::io`] to process [`FsIo`] filesystems.
+pub async fn handle(input: FsIo) -> io::Result<FsIo> {
     match input {
-        Io::Error(err) => Err(io::Error::new(io::ErrorKind::Other, err)),
-        Io::CreateDir(input) => create_dir(input).await,
-        Io::CreateDirs(input) => create_dirs(input).await,
-        Io::CreateFile(input) => create_file(input).await,
-        Io::CreateFiles(input) => create_files(input).await,
-        Io::ReadDir(input) => read_dir(input).await,
-        Io::ReadFile(input) => read_file(input).await,
-        Io::ReadFiles(input) => read_files(input).await,
-        Io::RemoveDir(input) => remove_dir(input).await,
-        Io::RemoveDirs(input) => remove_dirs(input).await,
-        Io::RemoveFile(input) => remove_file(input).await,
-        Io::RemoveFiles(input) => remove_files(input).await,
-        Io::Rename(input) => rename(input).await,
+        FsIo::CreateDir(input) => create_dir(input).await,
+        FsIo::CreateDirs(input) => create_dirs(input).await,
+        FsIo::CreateFile(input) => create_file(input).await,
+        FsIo::CreateFiles(input) => create_files(input).await,
+        FsIo::ReadDir(input) => read_dir(input).await,
+        FsIo::ReadFile(input) => read_file(input).await,
+        FsIo::ReadFiles(input) => read_files(input).await,
+        FsIo::RemoveDir(input) => remove_dir(input).await,
+        FsIo::RemoveDirs(input) => remove_dirs(input).await,
+        FsIo::RemoveFile(input) => remove_file(input).await,
+        FsIo::RemoveFiles(input) => remove_files(input).await,
+        FsIo::Rename(input) => rename(input).await,
     }
 }
 
-pub async fn create_dir(input: Result<(), PathBuf>) -> io::Result<Io> {
+pub async fn create_dir(input: Result<(), PathBuf>) -> io::Result<FsIo> {
     let Err(path) = input else {
         let kind = io::ErrorKind::InvalidInput;
         return Err(io::Error::new(kind, "missing directory path"));
@@ -40,10 +39,10 @@ pub async fn create_dir(input: Result<(), PathBuf>) -> io::Result<Io> {
 
     fs::create_dir(path).await?;
 
-    Ok(Io::CreateDir(Ok(())))
+    Ok(FsIo::CreateDir(Ok(())))
 }
 
-pub async fn create_dirs(input: Result<(), HashSet<PathBuf>>) -> io::Result<Io> {
+pub async fn create_dirs(input: Result<(), HashSet<PathBuf>>) -> io::Result<FsIo> {
     let Err(paths) = input else {
         let kind = io::ErrorKind::InvalidInput;
         return Err(io::Error::new(kind, "missing directory paths"));
@@ -53,10 +52,10 @@ pub async fn create_dirs(input: Result<(), HashSet<PathBuf>>) -> io::Result<Io> 
         fs::create_dir(path).await?;
     }
 
-    Ok(Io::CreateDirs(Ok(())))
+    Ok(FsIo::CreateDirs(Ok(())))
 }
 
-pub async fn create_file(input: Result<(), (PathBuf, Vec<u8>)>) -> io::Result<Io> {
+pub async fn create_file(input: Result<(), (PathBuf, Vec<u8>)>) -> io::Result<FsIo> {
     let Err((path, contents)) = input else {
         let kind = io::ErrorKind::InvalidInput;
         return Err(io::Error::new(kind, "missing file contents"));
@@ -64,10 +63,10 @@ pub async fn create_file(input: Result<(), (PathBuf, Vec<u8>)>) -> io::Result<Io
 
     fs::write(path, contents).await?;
 
-    Ok(Io::CreateFile(Ok(())))
+    Ok(FsIo::CreateFile(Ok(())))
 }
 
-pub async fn create_files(input: Result<(), HashMap<PathBuf, Vec<u8>>>) -> io::Result<Io> {
+pub async fn create_files(input: Result<(), HashMap<PathBuf, Vec<u8>>>) -> io::Result<FsIo> {
     let Err(contents) = input else {
         let kind = io::ErrorKind::InvalidInput;
         return Err(io::Error::new(kind, "missing file contents"));
@@ -77,10 +76,10 @@ pub async fn create_files(input: Result<(), HashMap<PathBuf, Vec<u8>>>) -> io::R
         fs::write(path, contents).await?;
     }
 
-    Ok(Io::CreateFiles(Ok(())))
+    Ok(FsIo::CreateFiles(Ok(())))
 }
 
-pub async fn read_dir(input: Result<HashSet<PathBuf>, PathBuf>) -> io::Result<Io> {
+pub async fn read_dir(input: Result<HashSet<PathBuf>, PathBuf>) -> io::Result<FsIo> {
     let Err(path) = input else {
         let kind = io::ErrorKind::InvalidInput;
         return Err(io::Error::new(kind, "missing directory path"));
@@ -93,10 +92,10 @@ pub async fn read_dir(input: Result<HashSet<PathBuf>, PathBuf>) -> io::Result<Io
         paths.insert(entry.path());
     }
 
-    Ok(Io::ReadDir(Ok(paths)))
+    Ok(FsIo::ReadDir(Ok(paths)))
 }
 
-pub async fn read_file(input: Result<Vec<u8>, PathBuf>) -> io::Result<Io> {
+pub async fn read_file(input: Result<Vec<u8>, PathBuf>) -> io::Result<FsIo> {
     let Err(path) = input else {
         let kind = io::ErrorKind::InvalidInput;
         return Err(io::Error::new(kind, "missing file path"));
@@ -104,12 +103,12 @@ pub async fn read_file(input: Result<Vec<u8>, PathBuf>) -> io::Result<Io> {
 
     let contents = fs::read(path).await?;
 
-    Ok(Io::ReadFile(Ok(contents)))
+    Ok(FsIo::ReadFile(Ok(contents)))
 }
 
 pub async fn read_files(
     input: Result<HashMap<PathBuf, Vec<u8>>, HashSet<PathBuf>>,
-) -> io::Result<Io> {
+) -> io::Result<FsIo> {
     let Err(paths) = input else {
         let kind = io::ErrorKind::InvalidInput;
         return Err(io::Error::new(kind, "missing file paths"));
@@ -122,10 +121,10 @@ pub async fn read_files(
         contents.insert(path, content);
     }
 
-    Ok(Io::ReadFiles(Ok(contents)))
+    Ok(FsIo::ReadFiles(Ok(contents)))
 }
 
-pub async fn remove_dir(input: Result<(), PathBuf>) -> io::Result<Io> {
+pub async fn remove_dir(input: Result<(), PathBuf>) -> io::Result<FsIo> {
     let Err(path) = input else {
         let kind = io::ErrorKind::InvalidInput;
         return Err(io::Error::new(kind, "missing directory path"));
@@ -133,10 +132,10 @@ pub async fn remove_dir(input: Result<(), PathBuf>) -> io::Result<Io> {
 
     fs::remove_dir_all(path).await?;
 
-    Ok(Io::RemoveDir(Ok(())))
+    Ok(FsIo::RemoveDir(Ok(())))
 }
 
-pub async fn remove_dirs(input: Result<(), HashSet<PathBuf>>) -> io::Result<Io> {
+pub async fn remove_dirs(input: Result<(), HashSet<PathBuf>>) -> io::Result<FsIo> {
     let Err(paths) = input else {
         let kind = io::ErrorKind::InvalidInput;
         return Err(io::Error::new(kind, "missing directory paths"));
@@ -146,10 +145,10 @@ pub async fn remove_dirs(input: Result<(), HashSet<PathBuf>>) -> io::Result<Io> 
         fs::remove_dir_all(path).await?;
     }
 
-    Ok(Io::RemoveDirs(Ok(())))
+    Ok(FsIo::RemoveDirs(Ok(())))
 }
 
-pub async fn remove_file(input: Result<(), PathBuf>) -> io::Result<Io> {
+pub async fn remove_file(input: Result<(), PathBuf>) -> io::Result<FsIo> {
     let Err(path) = input else {
         let kind = io::ErrorKind::InvalidInput;
         return Err(io::Error::new(kind, "missing file path"));
@@ -157,10 +156,10 @@ pub async fn remove_file(input: Result<(), PathBuf>) -> io::Result<Io> {
 
     fs::remove_file(path).await?;
 
-    Ok(Io::RemoveFile(Ok(())))
+    Ok(FsIo::RemoveFile(Ok(())))
 }
 
-pub async fn remove_files(input: Result<(), HashSet<PathBuf>>) -> io::Result<Io> {
+pub async fn remove_files(input: Result<(), HashSet<PathBuf>>) -> io::Result<FsIo> {
     let Err(paths) = input else {
         let kind = io::ErrorKind::InvalidInput;
         return Err(io::Error::new(kind, "missing file paths"));
@@ -170,10 +169,10 @@ pub async fn remove_files(input: Result<(), HashSet<PathBuf>>) -> io::Result<Io>
         fs::remove_file(path).await?;
     }
 
-    Ok(Io::RemoveFiles(Ok(())))
+    Ok(FsIo::RemoveFiles(Ok(())))
 }
 
-pub async fn rename(input: Result<(), Vec<(PathBuf, PathBuf)>>) -> io::Result<Io> {
+pub async fn rename(input: Result<(), Vec<(PathBuf, PathBuf)>>) -> io::Result<FsIo> {
     let Err(paths) = input else {
         let kind = io::ErrorKind::InvalidInput;
         return Err(io::Error::new(kind, "missing file paths"));
@@ -183,5 +182,5 @@ pub async fn rename(input: Result<(), Vec<(PathBuf, PathBuf)>>) -> io::Result<Io
         fs::rename(from, to).await?;
     }
 
-    Ok(Io::Rename(Ok(())))
+    Ok(FsIo::Rename(Ok(())))
 }

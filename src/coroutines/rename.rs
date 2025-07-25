@@ -2,14 +2,30 @@
 
 use std::path::PathBuf;
 
-use log::debug;
+use log::{debug, trace};
+use thiserror::Error;
 
-use crate::Io;
+use crate::io::FsIo;
+
+#[derive(Clone, Debug, Error)]
+pub enum RenameError {
+    #[error("Missing input: paths missing or already consumed")]
+    MissingInput,
+    #[error("Invalid argument: expected {0}, got {1:?}")]
+    InvalidArgument(&'static str, FsIo),
+}
+
+#[derive(Clone, Debug)]
+pub enum RenameResult {
+    Ok,
+    Err(RenameError),
+    Io(FsIo),
+}
 
 /// I/O-free coroutine for renaming files or directories.
 #[derive(Debug)]
 pub struct Rename {
-    input: Option<Vec<(PathBuf, PathBuf)>>,
+    sources: Option<Vec<(PathBuf, PathBuf)>>,
 }
 
 impl Rename {
@@ -23,28 +39,31 @@ impl Rename {
             .collect();
 
         Self {
-            input: Some(sources),
+            sources: Some(sources),
         }
     }
 
     /// Makes the coroutine progress.
-    pub fn resume(&mut self, arg: Option<Io>) -> Result<(), Io> {
+    pub fn resume(&mut self, arg: Option<FsIo>) -> RenameResult {
         let Some(arg) = arg else {
-            let Some(input) = self.input.take() else {
-                return Err(Io::error("rename input already consumed"));
+            let Some(sources) = self.sources.take() else {
+                return RenameResult::Err(RenameError::MissingInput);
             };
 
-            debug!("break: need I/O to rename files or directories");
-            return Err(Io::Rename(Err(input)));
+            trace!("wants I/O to rename files");
+            return RenameResult::Io(FsIo::Rename(Err(sources)));
         };
 
-        debug!("resume after renaming files or directories");
+        debug!("resume after renaming files");
 
-        let Io::Rename(Ok(())) = arg else {
-            let msg = format!("expected rename output, got {arg:?}");
-            return Err(Io::error(msg));
+        let FsIo::Rename(io) = arg else {
+            let err = RenameError::InvalidArgument("rename output", arg);
+            return RenameResult::Err(err);
         };
 
-        Ok(())
+        match io {
+            Ok(()) => RenameResult::Ok,
+            Err(path) => RenameResult::Io(FsIo::Rename(Err(path))),
+        }
     }
 }

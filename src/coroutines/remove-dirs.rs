@@ -2,41 +2,60 @@
 
 use std::{collections::HashSet, path::PathBuf};
 
-use log::debug;
+use log::{debug, trace};
+use thiserror::Error;
 
-use crate::Io;
+use crate::io::FsIo;
 
-/// I/O-free coroutine for removing directories.
+#[derive(Clone, Debug, Error)]
+pub enum RemoveDirsError {
+    #[error("Missing input: paths missing or already consumed")]
+    MissingInput,
+    #[error("Invalid argument: expected {0}, got {1:?}")]
+    InvalidArgument(&'static str, FsIo),
+}
+
+#[derive(Clone, Debug)]
+pub enum RemoveDirsResult {
+    Ok,
+    Err(RemoveDirsError),
+    Io(FsIo),
+}
+
+/// I/O-free coroutine for creating a dirsectory.
 #[derive(Debug)]
 pub struct RemoveDirs {
-    input: Option<HashSet<PathBuf>>,
+    paths: Option<HashSet<PathBuf>>,
 }
 
 impl RemoveDirs {
-    /// Creates a new coroutine from the given directory paths.
-    pub fn new(paths: impl IntoIterator<Item = impl Into<PathBuf>>) -> RemoveDirs {
-        let input = Some(paths.into_iter().map(Into::into).collect());
-        Self { input }
+    /// Removes a new coroutine from the given dirsectory path.
+    pub fn new(paths: impl IntoIterator<Item = PathBuf>) -> Self {
+        let paths = Some(paths.into_iter().collect());
+        Self { paths }
     }
 
-    /// Makes the coroutine progress.
-    pub fn resume(&mut self, arg: Option<Io>) -> Result<(), Io> {
+    /// Makes remove dirs progress.
+    pub fn resume(&mut self, arg: Option<FsIo>) -> RemoveDirsResult {
         let Some(arg) = arg else {
-            let Some(input) = self.input.take() else {
-                return Err(Io::error("remove dirs input already consumed"));
+            let Some(paths) = self.paths.take() else {
+                return RemoveDirsResult::Err(RemoveDirsError::MissingInput);
             };
 
-            debug!("break: need I/O to remove directories");
-            return Err(Io::RemoveDirs(Err(input)));
+            trace!("wants I/O to remove directories: {paths:?}");
+            return RemoveDirsResult::Io(FsIo::RemoveDirs(Err(paths)));
         };
 
-        debug!("resume after removing dirs");
+        debug!("resume after creating directories");
 
-        let Io::RemoveDir(Ok(())) = arg else {
-            let msg = format!("expected remove dirs output, got {arg:?}");
-            return Err(Io::error(msg));
+        let FsIo::RemoveDirs(io) = arg else {
+            let err = RemoveDirsError::InvalidArgument("remove dirs output", arg);
+            return RemoveDirsResult::Err(err);
         };
 
-        Ok(())
+        match io {
+            Ok(()) => RemoveDirsResult::Ok,
+            Err(path) => RemoveDirsResult::Io(FsIo::RemoveDirs(Err(path))),
+        }
     }
 }

@@ -2,41 +2,60 @@
 
 use std::{collections::HashSet, path::PathBuf};
 
-use log::debug;
+use log::{debug, trace};
+use thiserror::Error;
 
-use crate::Io;
+use crate::io::FsIo;
+
+#[derive(Clone, Debug, Error)]
+pub enum ReadDirError {
+    #[error("Missing input: path missing or already consumed")]
+    MissingInput,
+    #[error("Invalid argument: expected {0}, got {1:?}")]
+    InvalidArgument(&'static str, FsIo),
+}
+
+#[derive(Clone, Debug)]
+pub enum ReadDirResult {
+    Ok(HashSet<PathBuf>),
+    Err(ReadDirError),
+    Io(FsIo),
+}
 
 /// I/O-free coroutine for reading directory entries.
 #[derive(Debug)]
 pub struct ReadDir {
-    input: Option<PathBuf>,
+    path: Option<PathBuf>,
 }
 
 impl ReadDir {
     /// Reads a new coroutine from the given directory path.
     pub fn new(path: impl Into<PathBuf>) -> Self {
         let input = Some(path.into());
-        Self { input }
+        Self { path: input }
     }
 
     /// Makes the coroutine progress.
-    pub fn resume(&mut self, arg: Option<Io>) -> Result<HashSet<PathBuf>, Io> {
+    pub fn resume(&mut self, arg: Option<FsIo>) -> ReadDirResult {
         let Some(arg) = arg else {
-            let Some(input) = self.input.take() else {
-                return Err(Io::error("read dir input already consumed"));
+            let Some(path) = self.path.take() else {
+                return ReadDirResult::Err(ReadDirError::MissingInput);
             };
 
-            debug!("break: need I/O to read directory");
-            return Err(Io::ReadDir(Err(input)));
+            trace!("wants I/O to read directory at {}", path.display());
+            return ReadDirResult::Io(FsIo::ReadDir(Err(path)));
         };
 
         debug!("resume after reading directory");
 
-        let Io::ReadDir(Ok(paths)) = arg else {
-            let msg = format!("expected read dir output, got {arg:?}");
-            return Err(Io::error(msg));
+        let FsIo::ReadDir(io) = arg else {
+            let err = ReadDirError::InvalidArgument("read dir output", arg);
+            return ReadDirResult::Err(err);
         };
 
-        Ok(paths)
+        match io {
+            Ok(paths) => ReadDirResult::Ok(paths),
+            Err(path) => ReadDirResult::Io(FsIo::ReadDir(Err(path))),
+        }
     }
 }

@@ -2,41 +2,60 @@
 
 use std::path::PathBuf;
 
-use log::debug;
+use log::{debug, trace};
+use thiserror::Error;
 
-use crate::Io;
+use crate::io::FsIo;
 
-/// I/O-free coroutine for removing a file.
+#[derive(Clone, Debug, Error)]
+pub enum RemoveFileError {
+    #[error("Missing input: path missing or already consumed")]
+    MissingInput,
+    #[error("Invalid argument: expected {0}, got {1:?}")]
+    InvalidArgument(&'static str, FsIo),
+}
+
+#[derive(Clone, Debug)]
+pub enum RemoveFileResult {
+    Ok,
+    Err(RemoveFileError),
+    Io(FsIo),
+}
+
+/// I/O-free coroutine for creating a fileectory.
 #[derive(Debug)]
 pub struct RemoveFile {
-    input: Option<PathBuf>,
+    path: Option<PathBuf>,
 }
 
 impl RemoveFile {
-    /// Creates a new coroutine from the given file path.
+    /// Removes a new coroutine from the given fileectory path.
     pub fn new(path: impl Into<PathBuf>) -> Self {
-        let input = Some(path.into());
-        Self { input }
+        let path = Some(path.into());
+        Self { path }
     }
 
-    /// Makes the coroutine progress.
-    pub fn resume(&mut self, arg: Option<Io>) -> Result<(), Io> {
+    /// Makes remove file progress.
+    pub fn resume(&mut self, arg: Option<FsIo>) -> RemoveFileResult {
         let Some(arg) = arg else {
-            let Some(input) = self.input.take() else {
-                return Err(Io::error("remove file input already consumed"));
+            let Some(path) = self.path.take() else {
+                return RemoveFileResult::Err(RemoveFileError::MissingInput);
             };
 
-            debug!("break: need I/O to remove file");
-            return Err(Io::RemoveFile(Err(input)));
+            trace!("wants I/O to remove fileectory at {}", path.display());
+            return RemoveFileResult::Io(FsIo::RemoveFile(Err(path)));
         };
 
-        debug!("resume after removing file");
+        debug!("resume after creating fileectory");
 
-        let Io::RemoveFile(Ok(())) = arg else {
-            let msg = format!("expected remove file output, got {arg:?}");
-            return Err(Io::error(msg));
+        let FsIo::RemoveFile(io) = arg else {
+            let err = RemoveFileError::InvalidArgument("remove file output", arg);
+            return RemoveFileResult::Err(err);
         };
 
-        Ok(())
+        match io {
+            Ok(()) => RemoveFileResult::Ok,
+            Err(path) => RemoveFileResult::Io(FsIo::RemoveFile(Err(path))),
+        }
     }
 }
