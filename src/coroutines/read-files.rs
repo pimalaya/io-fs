@@ -1,4 +1,4 @@
-//! Module dedicated to the [`ReadFiles`] I/O-free coroutine.
+//! I/O-free coroutine to read multiple filesystem files contents.
 
 use std::{
     collections::{HashMap, HashSet},
@@ -6,53 +6,46 @@ use std::{
 };
 
 use log::{debug, trace};
-use thiserror::Error;
 
-use crate::io::FsIo;
+use crate::{
+    error::{FsError, FsResult},
+    io::FsIo,
+};
 
-#[derive(Clone, Debug, Error)]
-pub enum ReadFilesError {
-    #[error("Missing input: path missing or already consumed")]
-    MissingInput,
-    #[error("Invalid argument: expected {0}, got {1:?}")]
-    InvalidArgument(&'static str, FsIo),
-}
-
-#[derive(Clone, Debug)]
-pub enum ReadFilesResult {
-    Ok(HashMap<PathBuf, Vec<u8>>),
-    Err(ReadFilesError),
-    Io(FsIo),
-}
-
-/// I/O-free coroutine for reading files contents.
+/// I/O-free coroutine to read multiple filesystem files contents.
 #[derive(Debug)]
 pub struct ReadFiles {
     paths: Option<HashSet<PathBuf>>,
 }
 
 impl ReadFiles {
+    /// Creates a new coroutine from the given file paths.
+    pub fn new(paths: impl IntoIterator<Item = impl Into<PathBuf>>) -> Self {
+        let paths = Some(paths.into_iter().map(Into::into).collect());
+        Self { paths }
+    }
+
     /// Makes the coroutine progress.
-    pub fn resume(&mut self, arg: Option<FsIo>) -> ReadFilesResult {
+    pub fn resume(&mut self, arg: Option<FsIo>) -> FsResult<HashMap<PathBuf, Vec<u8>>> {
         let Some(arg) = arg else {
             let Some(path) = self.paths.take() else {
-                return ReadFilesResult::Err(ReadFilesError::MissingInput);
+                return FsResult::Err(FsError::MissingInput);
             };
 
             trace!("wants I/O to read files");
-            return ReadFilesResult::Io(FsIo::ReadFiles(Err(path)));
+            return FsResult::Io(FsIo::ReadFiles(Err(path)));
         };
 
         debug!("resume after reading files");
 
         let FsIo::ReadFiles(io) = arg else {
-            let err = ReadFilesError::InvalidArgument("read files output", arg);
-            return ReadFilesResult::Err(err);
+            let err = FsError::InvalidArgument("read files output", arg);
+            return FsResult::Err(err);
         };
 
         match io {
-            Ok(contents) => ReadFilesResult::Ok(contents),
-            Err(path) => ReadFilesResult::Io(FsIo::ReadFiles(Err(path))),
+            Ok(contents) => FsResult::Ok(contents),
+            Err(path) => FsResult::Io(FsIo::ReadFiles(Err(path))),
         }
     }
 }

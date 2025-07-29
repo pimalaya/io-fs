@@ -1,10 +1,10 @@
 //! Collection of I/O-free, resumable and composable filesystem state
 //! machines.
 //!
-//! Coroutines emit [`Io`] requests that need to be processed by
+//! Coroutines emit [I/O] requests that need to be processed by
 //! [runtimes] in order to continue their progression.
 //!
-//! [`Io`]: crate::Io
+//! [I/O]: crate::io
 //! [runtimes]: crate::runtimes
 
 #[path = "create-dir.rs"]

@@ -1,11 +1,13 @@
+//! Filesystem I/O requests and responses.
+
 use std::{
     collections::{HashMap, HashSet},
     fmt,
     path::PathBuf,
 };
 
-/// The filesystems I/O request enum, emitted by [coroutines] and
-/// processed by [runtimes].
+/// The filesystem I/O request and response enum, emitted by
+/// [coroutines] and processed by [runtimes].
 ///
 /// Represents all the possible I/O requests that a filesystem
 /// coroutine can emit. Runtimes should be able to handle all
@@ -15,17 +17,89 @@ use std::{
 /// [runtimes]: crate::runtimes
 #[derive(Clone)]
 pub enum FsIo {
+    /// I/O request to create a filesystem directory.
+    ///
+    /// Input: directory path
+    ///
+    /// Output: none
     CreateDir(Result<(), PathBuf>),
+
+    /// I/O request to create multiple filesystem directories.
+    ///
+    /// Input: set of directory paths
+    ///
+    /// Output: none
     CreateDirs(Result<(), HashSet<PathBuf>>),
+
+    /// I/O request to create a filesystem file.
+    ///
+    /// Input: tuple of file path and raw contents (bytes)
+    ///
+    /// Output: none
     CreateFile(Result<(), (PathBuf, Vec<u8>)>),
+
+    /// I/O request to create multiple filesystem files.
+    ///
+    /// Input: map of path and raw contents (bytes)
+    ///
+    /// Output: none
     CreateFiles(Result<(), HashMap<PathBuf, Vec<u8>>>),
+
+    /// I/O request to read entries from a filesystem directory.
+    ///
+    /// Input: directory path
+    ///
+    /// Output: set of entry paths
     ReadDir(Result<HashSet<PathBuf>, PathBuf>),
+
+    /// I/O request to read a filesystem file.
+    ///
+    /// Input: file path
+    ///
+    /// Output: raw contents (bytes)
     ReadFile(Result<Vec<u8>, PathBuf>),
+
+    /// I/O request to read multiple filesystem files.
+    ///
+    /// Input: set of file paths
+    ///
+    /// Output: map of path and raw contents (bytes)
     ReadFiles(Result<HashMap<PathBuf, Vec<u8>>, HashSet<PathBuf>>),
+
+    /// I/O request to remove a filesystem directory.
+    ///
+    /// Input: directory path
+    ///
+    /// Output: none
     RemoveDir(Result<(), PathBuf>),
+
+    /// I/O request to remove multiple filesystem directories.
+    ///
+    /// Input: set of directory paths
+    ///
+    /// Output: none
     RemoveDirs(Result<(), HashSet<PathBuf>>),
+
+    /// I/O request to remove a filesystem file.
+    ///
+    /// Input: file path
+    ///
+    /// Output: none
     RemoveFile(Result<(), PathBuf>),
+
+    /// I/O request to remove multiple filesystem files.
+    ///
+    /// Input: set of file paths
+    ///
+    /// Output: none
     RemoveFiles(Result<(), HashSet<PathBuf>>),
+
+    /// I/O request to rename multiple filesystem files and/or
+    /// directories.
+    ///
+    /// Input: set of directory and/or file paths
+    ///
+    /// Output: none
     Rename(Result<(), Vec<(PathBuf, PathBuf)>>),
 }
 

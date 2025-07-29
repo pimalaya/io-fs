@@ -1,35 +1,22 @@
-//! Module dedicated to the [`CreateFiles`] I/O-free coroutine.
+//! I/O-free coroutine to create multiple filesystem files.
 
 use std::{collections::HashMap, path::PathBuf};
 
 use log::{debug, trace};
-use thiserror::Error;
 
-use crate::io::FsIo;
+use crate::{
+    error::{FsError, FsResult},
+    io::FsIo,
+};
 
-#[derive(Clone, Debug, Error)]
-pub enum CreateFilesError {
-    #[error("Missing input: contents missing or already consumed")]
-    MissingInput,
-    #[error("Invalid argument: expected {0}, got {1:?}")]
-    InvalidArgument(&'static str, FsIo),
-}
-
-#[derive(Clone, Debug)]
-pub enum CreateFilesResult {
-    Ok,
-    Err(CreateFilesError),
-    Io(FsIo),
-}
-
-/// I/O-free coroutine for creating a file.
+/// I/O-free coroutine to create multiple filesystem files.
 #[derive(Debug)]
 pub struct CreateFiles {
     contents: Option<HashMap<PathBuf, Vec<u8>>>,
 }
 
 impl CreateFiles {
-    /// Creates a new coroutine from the given file path and contents.
+    /// Creates a new coroutine from the given file paths and contents.
     pub fn new(
         contents: impl IntoIterator<Item = (impl Into<PathBuf>, impl IntoIterator<Item = u8>)>,
     ) -> Self {
@@ -40,27 +27,27 @@ impl CreateFiles {
         Self { contents }
     }
 
-    /// Makes create files progress.
-    pub fn resume(&mut self, arg: Option<FsIo>) -> CreateFilesResult {
+    /// Makes the coroutine progress.
+    pub fn resume(&mut self, arg: Option<FsIo>) -> FsResult {
         let Some(arg) = arg else {
             let Some(contents) = self.contents.take() else {
-                return CreateFilesResult::Err(CreateFilesError::MissingInput);
+                return FsResult::Err(FsError::MissingInput);
             };
 
             trace!("wants I/O to create files");
-            return CreateFilesResult::Io(FsIo::CreateFiles(Err(contents)));
+            return FsResult::Io(FsIo::CreateFiles(Err(contents)));
         };
 
         debug!("resume after creating files");
 
         let FsIo::CreateFiles(io) = arg else {
-            let err = CreateFilesError::InvalidArgument("create files output", arg);
-            return CreateFilesResult::Err(err);
+            let err = FsError::InvalidArgument("create files output", arg);
+            return FsResult::Err(err);
         };
 
         match io {
-            Ok(()) => CreateFilesResult::Ok,
-            Err(path) => CreateFilesResult::Io(FsIo::CreateFiles(Err(path))),
+            Ok(()) => FsResult::Ok(()),
+            Err(path) => FsResult::Io(FsIo::CreateFiles(Err(path))),
         }
     }
 }

@@ -1,4 +1,4 @@
-//! Module dedicated to the standard, blocking runtime.
+//! The standard, blocking filesystem runtime.
 
 use std::{
     collections::{HashMap, HashSet},
@@ -10,10 +10,10 @@ use log::debug;
 
 use crate::io::FsIo;
 
-/// The main runtime I/O handler.
+/// The standard, blocking filesystem runtime handler.
 ///
 /// This handler makes use of standard modules [`std::fs`] and
-/// [`std::io`] to process filesystems [`Io`].
+/// [`std::io`] to process [`FsIo`].
 pub fn handle(input: FsIo) -> io::Result<FsIo> {
     match input {
         FsIo::CreateDir(input) => create_dir(input),

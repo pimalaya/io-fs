@@ -1,35 +1,25 @@
-//! Module dedicated to the [`Rename`] I/O-free coroutine.
+//! I/O-free coroutine to rename multiple filesystem files and/or
+//! directories.
 
 use std::path::PathBuf;
 
 use log::{debug, trace};
-use thiserror::Error;
 
-use crate::io::FsIo;
+use crate::{
+    error::{FsError, FsResult},
+    io::FsIo,
+};
 
-#[derive(Clone, Debug, Error)]
-pub enum RenameError {
-    #[error("Missing input: paths missing or already consumed")]
-    MissingInput,
-    #[error("Invalid argument: expected {0}, got {1:?}")]
-    InvalidArgument(&'static str, FsIo),
-}
-
-#[derive(Clone, Debug)]
-pub enum RenameResult {
-    Ok,
-    Err(RenameError),
-    Io(FsIo),
-}
-
-/// I/O-free coroutine for renaming files or directories.
+/// I/O-free coroutine to rename multiple filesystem files and/or
+/// directories.
 #[derive(Debug)]
 pub struct Rename {
     sources: Option<Vec<(PathBuf, PathBuf)>>,
 }
 
 impl Rename {
-    /// Reads a new coroutine from the given source and destination paths.
+    /// Creates a new coroutine from the given file paths and
+    /// contents.
     pub fn new(
         sources: impl IntoIterator<Item = (impl Into<PathBuf>, impl Into<PathBuf>)>,
     ) -> Self {
@@ -44,26 +34,26 @@ impl Rename {
     }
 
     /// Makes the coroutine progress.
-    pub fn resume(&mut self, arg: Option<FsIo>) -> RenameResult {
+    pub fn resume(&mut self, arg: Option<FsIo>) -> FsResult {
         let Some(arg) = arg else {
             let Some(sources) = self.sources.take() else {
-                return RenameResult::Err(RenameError::MissingInput);
+                return FsResult::Err(FsError::MissingInput);
             };
 
             trace!("wants I/O to rename files");
-            return RenameResult::Io(FsIo::Rename(Err(sources)));
+            return FsResult::Io(FsIo::Rename(Err(sources)));
         };
 
         debug!("resume after renaming files");
 
         let FsIo::Rename(io) = arg else {
-            let err = RenameError::InvalidArgument("rename output", arg);
-            return RenameResult::Err(err);
+            let err = FsError::InvalidArgument("rename output", arg);
+            return FsResult::Err(err);
         };
 
         match io {
-            Ok(()) => RenameResult::Ok,
-            Err(path) => RenameResult::Io(FsIo::Rename(Err(path))),
+            Ok(()) => FsResult::Ok(()),
+            Err(path) => FsResult::Io(FsIo::Rename(Err(path))),
         }
     }
 }

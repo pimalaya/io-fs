@@ -1,4 +1,4 @@
-//! Module dedicated to the Tokio-based, async runtime.
+//! The Tokio-based, async filesystem runtime.
 
 use std::{
     collections::{HashMap, HashSet},
@@ -10,10 +10,10 @@ use tokio::fs;
 
 use crate::io::FsIo;
 
-/// The Tokio-based, async I/O handler.
+/// The Tokio-based, async filesystem runtime handler.
 ///
 /// This handler makes use of standard module [`std::io`] and Tokio
-/// module [`tokio::io`] to process [`FsIo`] filesystems.
+/// module [`tokio::io`] to process [`FsIo`].
 pub async fn handle(input: FsIo) -> io::Result<FsIo> {
     match input {
         FsIo::CreateDir(input) => create_dir(input).await,

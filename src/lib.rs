@@ -2,5 +2,6 @@
 #![doc = include_str!("../README.md")]
 
 pub mod coroutines;
+pub mod error;
 pub mod io;
 pub mod runtimes;

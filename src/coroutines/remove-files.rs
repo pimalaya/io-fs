@@ -1,61 +1,48 @@
-//! Module dedicated to the [`RemoveFiles`] I/O-free coroutine.
+//! I/O-free coroutine to remove multiple filesystem files.
 
 use std::{collections::HashSet, path::PathBuf};
 
 use log::{debug, trace};
-use thiserror::Error;
 
-use crate::io::FsIo;
+use crate::{
+    error::{FsError, FsResult},
+    io::FsIo,
+};
 
-#[derive(Clone, Debug, Error)]
-pub enum RemoveFilesError {
-    #[error("Missing input: paths missing or already consumed")]
-    MissingInput,
-    #[error("Invalid argument: expected {0}, got {1:?}")]
-    InvalidArgument(&'static str, FsIo),
-}
-
-#[derive(Clone, Debug)]
-pub enum RemoveFilesResult {
-    Ok,
-    Err(RemoveFilesError),
-    Io(FsIo),
-}
-
-/// I/O-free coroutine for creating a filesectory.
+/// I/O-free coroutine to remove multiple filesystem files.
 #[derive(Debug)]
 pub struct RemoveFiles {
     paths: Option<HashSet<PathBuf>>,
 }
 
 impl RemoveFiles {
-    /// Removes a new coroutine from the given filesectory path.
+    /// Creates a new coroutine from the given file paths.
     pub fn new(paths: impl IntoIterator<Item = PathBuf>) -> Self {
         let paths = Some(paths.into_iter().collect());
         Self { paths }
     }
 
     /// Makes remove files progress.
-    pub fn resume(&mut self, arg: Option<FsIo>) -> RemoveFilesResult {
+    pub fn resume(&mut self, arg: Option<FsIo>) -> FsResult {
         let Some(arg) = arg else {
             let Some(paths) = self.paths.take() else {
-                return RemoveFilesResult::Err(RemoveFilesError::MissingInput);
+                return FsResult::Err(FsError::MissingInput);
             };
 
             trace!("wants I/O to remove fileectories: {paths:?}");
-            return RemoveFilesResult::Io(FsIo::RemoveFiles(Err(paths)));
+            return FsResult::Io(FsIo::RemoveFiles(Err(paths)));
         };
 
         debug!("resume after creating fileectories");
 
         let FsIo::RemoveFiles(io) = arg else {
-            let err = RemoveFilesError::InvalidArgument("remove files output", arg);
-            return RemoveFilesResult::Err(err);
+            let err = FsError::InvalidArgument("remove files output", arg);
+            return FsResult::Err(err);
         };
 
         match io {
-            Ok(()) => RemoveFilesResult::Ok,
-            Err(path) => RemoveFilesResult::Io(FsIo::RemoveFiles(Err(path))),
+            Ok(()) => FsResult::Ok(()),
+            Err(path) => FsResult::Io(FsIo::RemoveFiles(Err(path))),
         }
     }
 }
