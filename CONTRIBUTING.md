@@ -1,6 +1,6 @@
 # Contributing guide
 
-Thank you for investing your time in contributing to the filesystems project!
+Thank you for investing your time in contributing to the I/O Filesystem project.
 
 ## Development
 
@@ -34,4 +34,4 @@ cargo build --no-default-features --features std --release
 
 ## Commit style
 
-Filesystems follows the [conventional commits specification](https://www.conventionalcommits.org/en/v1.0.0/#summary).
+I/O Filesystem follows the [conventional commits specification](https://www.conventionalcommits.org/en/v1.0.0/#summary).

@@ -7,13 +7,13 @@ use std::{
 };
 
 use io_fs::{coroutines::create_files::CreateFiles, error::FsResult, runtimes::tokio::handle};
-use tempdir::TempDir;
+use tempfile::tempdir;
 
 #[tokio::main]
 async fn main() {
     let _ = env_logger::try_init();
 
-    let tmp = TempDir::new("tokio-create-many-files").unwrap();
+    let tmp = tempdir().unwrap();
 
     let n: usize = match env::var("N") {
         Ok(n) => n.parse().unwrap(),
@@ -37,8 +37,6 @@ async fn main() {
     let duration = start.elapsed();
 
     println!("Created {n} temp files in {duration:?}!");
-
-    tmp.close().unwrap();
 }
 
 fn read_line(prompt: &str) -> String {

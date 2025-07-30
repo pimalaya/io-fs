@@ -12,13 +12,13 @@ use io_fs::{
     error::FsResult,
     runtimes::tokio::handle,
 };
-use tempdir::TempDir;
+use tempfile::tempdir;
 
 #[tokio::test]
 async fn tokio() {
     let _ = env_logger::try_init();
 
-    let workdir = TempDir::new("test-fs-std").unwrap();
+    let workdir = tempdir().unwrap();
 
     // create single directory
 
@@ -254,8 +254,4 @@ async fn tokio() {
 
     assert_eq!(false, workdir.path().join("dir1").is_dir());
     assert_eq!(false, workdir.path().join("dir2").is_dir());
-
-    // end
-
-    workdir.close().unwrap()
 }
