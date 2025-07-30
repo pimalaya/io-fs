@@ -49,13 +49,22 @@ for path in paths {
 
 *See complete examples at [./examples](https://github.com/pimalaya/io-fs/blob/master/examples).*
 
-### Real-world examples
+## More examples
 
 Have a look at projects built on the top of this library:
 
 - [io-vdir](https://github.com/pimalaya/io-vdir): Set of I/O-free Rust coroutines to manage [Vdir](https://vdirsyncer.pimutils.org/en/stable/vdir.html) filesystems.
 - [io-addressbook](https://github.com/pimalaya/io-addressbook): Set of I/O-free Rust coroutines and clients to manage contacts.
 - [Cardamum](https://github.com/pimalaya/cardamum): CLI to manage contacts.
+
+## License
+
+This project is licensed under either of:
+
+- [MIT license](LICENSE-MIT)
+- [Apache License, Version 2.0](LICENSE-APACHE)
+
+at your option.
 
 ## Sponsoring
 
