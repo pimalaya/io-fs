@@ -25,32 +25,37 @@ The loop is the glue between coroutines and runtimes. It makes the coroutine pro
 ### Read a directory synchronously
 
 ```rust,ignore
-use io_fs::{coroutines::ReadDir, runtimes::std::handle};
+use std::{path::PathBuf};
 
-let mut output = None;
+use io_fs::{coroutines::read_dir::ReadDir, error::FsResult, runtimes::std::handle};
+
+let mut arg = None;
 let mut coroutine = ReadDir::new("/tmp");
 
-let entries = loop {
-    match coroutine.resume(output) {
-        Ok(entries) => break entries,
-        Err(io) => output = Some(handle(io).unwrap()),
+let paths = loop {
+    match coroutine.resume(arg) {
+        FsResult::Ok(paths) => break paths,
+        FsResult::Err(err) => panic!("{err}"),
+        FsResult::Io(io) => arg = Some(handle(io).unwrap()),
     }
 };
 
-println!("Entries inside /tmp:");
+println!("Entries inside {}:", path.display());
 
 for path in paths {
     println!(" - {}", path.display());
 }
 ```
 
-*See complete example at [./examples/std-read-dir.rs](https://github.com/pimalaya/io-fs/blob/master/examples/std-read-dir.rs).*
+*See complete examples at [./examples](https://github.com/pimalaya/io-fs/blob/master/examples).*
 
-### More examples
+### Real-world examples
 
 Have a look at projects built on the top of this library:
 
-- [io-vdir](https://github.com/pimalaya/io-vdir): Set of I/O-free Rust coroutines and runtimes to manage [Vdir](https://vdirsyncer.pimutils.org/en/stable/vdir.html) filesystems.
+- [io-vdir](https://github.com/pimalaya/io-vdir): Set of I/O-free Rust coroutines to manage [Vdir](https://vdirsyncer.pimutils.org/en/stable/vdir.html) filesystems.
+- [io-addressbook](https://github.com/pimalaya/io-addressbook): Set of I/O-free Rust coroutines and clients to manage contacts.
+- [Cardamum](https://github.com/pimalaya/cardamum): CLI to manage contacts.
 
 ## Sponsoring
 
